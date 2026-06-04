@@ -1,0 +1,13 @@
+services:
+  mecab-api:
+    build: .
+    container_name: mecab-neologd-api
+    ports:
+      - "8000:8000"
+    restart: always
+    environment:
+      - TZ=Asia/Tokyo
+    deploy:
+      resources:
+        limits:
+          memory: 2G

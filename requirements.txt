@@ -1,0 +1,4 @@
+fastapi
+uvicorn[standard]
+mecab-python3
+pydantic

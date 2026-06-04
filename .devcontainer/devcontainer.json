@@ -1,0 +1,17 @@
+{
+    "name": "MeCab Neologd Dev (Debian)",
+    "build": {
+        "dockerfile": "../Dockerfile",
+        "context": ".."
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance"
+            ]
+        }
+    },
+    "forwardPorts": [8000],
+    "remoteUser": "root"
+}
