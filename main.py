@@ -1,4 +1,7 @@
+import os
+import subprocess
 import sys
+
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 from typing import List, Optional
@@ -7,16 +10,36 @@ import MeCab
 app = FastAPI(title="MeCab API")
 
 # Debian系でのNeologd標準パス
-DIC_NEOLOGD = "/usr/lib/x86_64-linux-gnu/mecab/dic/mecab-ipadic-neologd"
-DIC_IPADIC = "/var/lib/mecab/dic/ipadic-utf8"
+SYSDIC_NEOLOGD = "/usr/lib/x86_64-linux-gnu/mecab/dic/mecab-ipadic-neologd"
+SYSDIC_IPADIC = "/var/lib/mecab/dic/ipadic-utf8"
+USERDIC_NEOLOGD = "userdic-neologd.dic"
+USERDIC_IPADIC = "userdic-ipadic.dic"
+USERDICCSV = "userdic.csv"
 
+env = os.environ.copy()
+env["LANG"] = "C.UTF-8"
+env["LC_ALL"] = "C.UTF-8"
+
+def build_user_dic(user_csv:str, user_dic:str, system_dic:str):
+    if not os.path.exists(user_dic) or os.path.getmtime(user_csv) > os.path.getmtime(user_dic):
+        print("ユーザー辞書を再ビルド中...")
+        subprocess.run([
+            "/usr/lib/mecab/mecab-dict-index", 
+            "-d", system_dic, 
+            "-u", user_dic, 
+            "-f", "utf-8", 
+            "-t", "utf-8", 
+            user_csv
+        ], check=True, stdout=sys.stdout, stderr=sys.stderr, env=env)
 taggers=dict()
 try:
-    taggers['NEOlogd'] = MeCab.Tagger(f"-d {DIC_NEOLOGD}")
+    build_user_dic(USERDICCSV, USERDIC_NEOLOGD, SYSDIC_NEOLOGD)
+    taggers['NEOlogd'] = MeCab.Tagger(f"-d {SYSDIC_NEOLOGD} -u {USERDIC_NEOLOGD}")
 except Exception as e:
     print(f"Error initializing tagger NEOlogd: {e}",file=sys.stderr)
 try:
-    taggers['IPADic'] = MeCab.Tagger(f"-d {DIC_IPADIC}")
+    build_user_dic(USERDICCSV, USERDIC_IPADIC, SYSDIC_IPADIC)
+    taggers['IPADic'] = MeCab.Tagger(f"-d {SYSDIC_IPADIC} -u {USERDIC_IPADIC}")
 except Exception as e:
     print(f"Error initializing tagger IPADic: {e}",file=sys.stderr)
 
@@ -32,7 +55,7 @@ async def parse_text(
         raise HTTPException(status_code=500, detail="MeCab Tagger not initialized")
     tagger = taggers.get(dic)
     if tagger is None:
-        raise HTTPException(status_code=400, detail="MeCab Tagger not found")
+        raise HTTPException(status_code=422, detail="MeCab Tagger not found")
 
     node = tagger.parseToNode(request.text)
     results = []
